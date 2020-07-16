@@ -8,7 +8,7 @@ import flatten from 'lodash/flatten';
  */
 export const dataTransformer = product => {
   const image = get(product, ['image', 'src'], '');
-  const sku = get(product, ['sku'], '');
+  const sku = get(product, ['id'], '');
 
   return {
     id: product.id,
@@ -18,26 +18,8 @@ export const dataTransformer = product => {
   };
 };
 
-export const productsToVariantsTransformer = products =>
-  flatten(
-    products.map(product => {
-      const variants = product.variants.map(variant => ({
-        ...variant,
-        variantSKU: variant.sku,
-        sku: variant.id,
-        productId: product.id,
-        title: product.title,
-        hasNextPage: false
-      }));
-      variants[variants.length - 1].hasNextPage = product.hasNextPage;
-      return variants;
-    })
-  );
-
-export const previewsToVariants = ({ apiEndpoint }) => ({ sku, id, image, product }) => {
-  const productIdDecoded = atob(product.id);
-  const productId =
-    productIdDecoded && productIdDecoded.slice(productIdDecoded.lastIndexOf('/') + 1);
+export const previewsToProducts = ({ apiEndpoint }) => ({ id, images, title }) => {
+  const image = get(images, ['edges'], [])[0] || {}
   return {
     id,
     image: get(image, ['src'], ''),
@@ -45,13 +27,13 @@ export const previewsToVariants = ({ apiEndpoint }) => ({ sku, id, image, produc
     // as an alternative piece of info to persist instead of the SKU.
     // For now this is a temporary hack.
     sku: id,
-    productId: product.id,
-    name: product.title,
+    productId: id,
+    name: title,
     ...(apiEndpoint &&
       productId && {
         externalLink: `https://${apiEndpoint}${
           last(apiEndpoint) === '/' ? '' : '/'
-        }admin/products/${productId}`
+        }admin/products/${id}`
       })
   };
 };

@@ -28,38 +28,37 @@ export async function makeShopifyClient({ parameters: { installation } }) {
  *       would have more than 250 products selected. In such a case their
  *       selection would be cut off after product no. 250.
  */
-export const fetchProductPreviews = async (skus, config) => {
-  if (!skus.length) {
+export const fetchProductPreviews = async (ids, config) => {
+  if (!ids.length) {
     return [];
   }
 
-  const validIds = skus
-    .map(sku => {
+  const validIds = ids
+    .map(id => {
       try {
         // If not valid base64 window.atob will throw
-        const unencodedId = atob(sku);
-        return { unencodedId, sku };
+        const unencodedId = atob(id);
+        return { unencodedId, id };
       } catch (error) {
         return null;
       }
     })
-    .filter(sku => sku && /^gid.*ProductVariant/.test(sku.unencodedId))
-    .map(({ sku }) => sku);
+    .filter(id => id && /^gid.*Product/.test(id.unencodedId))
+    .map(({ id }) => id);
 
-  const queryIds = validIds.map(sku => `"${sku}"`).join(',');
+  const queryIds = validIds.map(id => `"${id}"`).join(',');
   const query = `
   {
     nodes (ids: [${queryIds}]) {
       id,
-      ...on ProductVariant {
-        sku,
-        image {
-          src: originalSrc
-        },
+      ...on Product {
         title,
-        product {
-          id,
-          title
+        images(first: 1) {
+          edges {
+            node {
+              src: originalSrc  
+            }
+          }
         }
       }
     }
@@ -82,13 +81,13 @@ export const fetchProductPreviews = async (skus, config) => {
 
   const nodes = get(data, ['data', 'nodes'], []).filter(identity);
 
-  const variantPreviews = nodes.map(previewsToVariants(config));
-  const missingVariants = difference(
-    skus,
-    variantPreviews.map(variant => variant.sku)
+  const productPreviews = nodes.map(previewsToProducts(config));
+  const missingProducts = difference(
+    ids,
+    productPreviews.map(product => product.sku)
   ).map(sku => ({ sku, isMissing: true, name: '', image: '' }));
 
-  return [...variantPreviews, ...missingVariants];
+  return productPreviews;
 };
 
 /**

@@ -12,8 +12,6 @@ class Pagination {
 
   products = [];
 
-  variants = [];
-
   prevSearch = '';
 
   constructor(sdk) {
@@ -37,18 +35,13 @@ class Pagination {
     const nothingLeftToFetch =
       (!!this.products.length && !last(this.products).hasNextPage) ||
       (!this.freshSearch && !this.products.length);
-    const hasEnoughVariantsToConsume = this.variants.length >= PER_PAGE || nothingLeftToFetch;
-    if (hasEnoughVariantsToConsume) {
-      const variants = this.variants.splice(0, PER_PAGE);
-      const lastProduct = this.products.find(product => product.id === last(variants).productId);
+
+    if (nothingLeftToFetch) {
       return {
         pagination: {
-          // There is going to be a next page in the following two complimentary cases:
-          // A). The product corresponding to the last variant belongs is tagged as having a next page
-          // B). There are variants left to consume in the in-memory variants list
-          hasNextPage: get(lastProduct, ['hasNextPage'], false) || this.variants.length > 0
+          hasNextPage: false
         },
-        products: variants.map(dataTransformer)
+        products: products.map(dataTransformer)
       };
     }
 
@@ -68,9 +61,8 @@ class Pagination {
     const nextProducts = noProductsFetchedYet
       ? await this._fetchProducts(search)
       : await this._fetchNextPage(this.products);
-    const nextVariants = productsToVariantsTransformer(nextProducts);
+
     this.products = uniqBy([...this.products, ...nextProducts], 'id');
-    this.variants = sortBy(uniqBy([...this.variants, ...nextVariants], 'id'), ['title', 'sku']);
 
     this.freshSearch = false;
   }
@@ -81,7 +73,7 @@ class Pagination {
    * a new search term.
    */
   async _fetchProducts(search) {
-    const query = { query: `variants:['sku:${search}'] OR title:${search}` };
+    const query = { query: `products:['sku:${search}'] OR title:${search}` };
     return await this.shopifyClient.product.fetchQuery({
       first: PER_PAGE,
       sortBy: 'TITLE',
@@ -100,7 +92,6 @@ class Pagination {
 
   _resetPagination() {
     this.products = [];
-    this.variants = [];
     this.freshSearch = true;
   }
 }
